@@ -1,28 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
-import 'reactflow/dist/style.css'; // React Flow'un zorunlu CSS dosyası
-
-import { useWebSocket } from './hooks/useWebsocket.js'; // İsimdeki büyük/küçük harf düzeltildi
+import 'reactflow/dist/style.css';
+ 
+import { useWebSocket } from './hooks/useWebSocket.js';
 import { createTask } from './services/api';
-
-// Task durumlarına göre Node (Kutu) renklerini belirleyelim
-const getColorByStatus = (status) => {
-    switch (status) {
-        case 'WAITING': return '#e2e8f0'; // Gri
-        case 'RUNNING': return '#86efac'; // Yeşil
-        case 'SUCCESS': return '#93c5fd'; // Mavi
-        case 'FAILED': return '#fca5a5';  // Kırmızı
-        case 'CANCELLED': return '#fcd34d'; // Sarı
-        default: return '#ffffff';
-    }
-};
-
+import TaskNode from './components/TaskNode'; // YENİ: Custom Node'umuzu import ettik
+ 
 export default function App() {
-    // Hook'umuzdan canlı verileri çekiyoruz
     const { tasks, metrics } = useWebSocket();
     const [nodes, setNodes] = useState([]);
-
-    // Yeni task tetikleme fonksiyonu
+ 
+    // YENİ: React Flow'a "custom" adında yeni bir node tipi öğretiyoruz
+    const nodeTypes = useMemo(() => ({ custom: TaskNode }), []);
+ 
     const handleCreateTask = async (type, priority) => {
         try {
             await createTask(type, priority);
@@ -30,98 +20,90 @@ export default function App() {
             console.error("Task oluşturulamadı:", error);
         }
     };
-
-    // WebSocket'ten yeni 'tasks' geldiğinde React Flow Node'larını güncelle
+ 
     useEffect(() => {
-        // Durumlarına göre görevleri ayırıyoruz ki ekranda sütunlara dizelim
         const waitingTasks = tasks.filter(t => t.status === 'WAITING');
         const runningTasks = tasks.filter(t => t.status === 'RUNNING');
         const completedTasks = tasks.filter(t => ['SUCCESS', 'FAILED', 'TIMEOUT', 'CANCELLED'].includes(t.status));
-
+ 
+        // Eski karmaşık style ve label tanımlarını sildik, sadece datayı TaskNode'a yolluyoruz
         const createNode = (task, index, xOffset) => ({
             id: task.id.toString(),
-            position: { 
-                x: xOffset, 
-                y: index * 120 + 50 // Yukarıdan aşağıya doğru diz
-            },
-            data: { 
-                label: (
-                    <div style={{ textAlign: 'center', padding: '5px' }}>
-                        <strong>ID: {task.id}</strong><br/>
-                        <span style={{ fontSize: '12px' }}>{task.type}</span><br/>
-                        <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Priority: {task.priority}</span><br/>
-                        <span style={{ fontSize: '10px' }}>{task.status}</span>
-                    </div>
-                )
-            },
-            style: { 
-                background: getColorByStatus(task.status),
-                border: '1px solid #333',
-                borderRadius: '8px',
-                width: 150,
-                color: '#000',
-                boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-            }
+            type: 'custom', // YENİ: Bizim özel bileşeni kullan
+            position: { x: xOffset, y: index * 140 + 50 }, // Aralarını biraz açtık
+            data: { task: task } // Tüm task verisini Custom Node'a paslıyoruz
         });
-
+ 
         const newNodes = [
-            // Bekleyenleri x: 50 hizasına diz
             ...waitingTasks.map((t, i) => createNode(t, i, 50)),
-            // Çalışanları x: 350 hizasına diz (Burası Thread Pool'umuz)
             ...runningTasks.map((t, i) => createNode(t, i, 350)),
-            // Bitenleri x: 650 hizasına diz (En fazla son 10 biteni gösterelim ekran dolmasın)
             ...completedTasks.slice(-10).map((t, i) => createNode(t, i, 650))
         ];
-
+ 
         setNodes(newNodes);
     }, [tasks]);
-
+ 
     return (
-        // DÜZELTME BURADA: width: '100%' yapıldı ve overflow: 'hidden' eklendi
-        <div style={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', margin: 0, padding: 0 }}>
+        <div style={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             
-            {/* Üst Panel: Kontroller ve Metrikler */}
-            <div style={{ padding: '20px', background: '#1e293b', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Üst Panel */}
+            <div style={{ padding: '20px 30px', background: '#0f172a', color: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.3)', zIndex: 10 }}>
                 <div>
-                    <h2>DispatchSim Control Panel</h2>
-                    <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                        <button onClick={() => handleCreateTask('CPU_BOUND', 'LOW')} style={{ padding: '8px', cursor: 'pointer' }}>+ CPU (Low)</button>
-                        <button onClick={() => handleCreateTask('CPU_BOUND', 'CRITICAL')} style={{ background: '#ef4444', color: 'white', padding: '8px', cursor: 'pointer' }}>+ CPU (Critical)</button>
-                        <button onClick={() => handleCreateTask('IO_BOUND', 'MEDIUM')} style={{ padding: '8px', cursor: 'pointer' }}>+ IO (Medium)</button>
+                    <h2 style={{ margin: '0 0 15px 0', fontSize: '22px', fontWeight: '800', letterSpacing: '1px' }}>
+                        ⚡ DispatchSim Console
+                    </h2>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                        <button className="modern-btn btn-blue" onClick={() => handleCreateTask('CPU_BOUND', 'LOW')}>
+                            ⚙️ CPU (Low)
+                        </button>
+                        <button className="modern-btn btn-red" onClick={() => handleCreateTask('CPU_BOUND', 'CRITICAL')}>
+                            🚨 CPU (Critical)
+                        </button>
+                        <button className="modern-btn btn-purple" onClick={() => handleCreateTask('IO_BOUND', 'MEDIUM')}>
+                            🌐 IO (Medium)
+                        </button>
                     </div>
                 </div>
-
-                {/* Sağ Üst: Canlı JVM Metrikleri */}
+ 
+                {/* Metrikler Paneli */}
                 {metrics && (
-                    <div style={{ background: '#334155', padding: '15px', borderRadius: '8px', minWidth: '300px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
-                            <span><strong>Threads:</strong> {metrics.activeThreads} / 8</span>
-                            <span><strong>Queue:</strong> {metrics.queuedTasks}</span>
-                            <span><strong>GC Pauses:</strong> {metrics.gcPauseCount}</span>
+                    <div style={{ background: '#1e293b', padding: '16px', borderRadius: '12px', minWidth: '320px', border: '1px solid #334155' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', fontSize: '13px', color: '#94a3b8' }}>
+                            <span><strong>Threads:</strong> <span style={{ color: 'white' }}>{metrics.activeThreads} / 8</span></span>
+                            <span><strong>Queue:</strong> <span style={{ color: 'white' }}>{metrics.queuedTasks}</span></span>
+                            <span><strong>GC:</strong> <span style={{ color: 'white' }}>{metrics.gcPauseCount}</span></span>
                         </div>
                         
-                        {/* Memory Progress Bar */}
-                        <div style={{ fontSize: '12px', marginBottom: '4px', textAlign: 'right' }}>
+                        <div style={{ fontSize: '12px', marginBottom: '6px', textAlign: 'right', fontWeight: 'bold', color: '#cbd5e1' }}>
                             Heap: {metrics.heapUsedMb.toFixed(0)} MB / {metrics.heapMaxMb.toFixed(0)} MB
                         </div>
-                        <div style={{ width: '100%', background: '#1e293b', height: '12px', borderRadius: '6px', overflow: 'hidden' }}>
-                            <div style={{ 
-                                height: '100%', 
+                        <div style={{ width: '100%', background: '#0f172a', height: '14px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #334155' }}>
+                            <div style={{
+                                height: '100%',
                                 width: `${Math.min((metrics.heapUsedMb / metrics.heapMaxMb) * 100, 100)}%`,
                                 background: (metrics.heapUsedMb / metrics.heapMaxMb) > 0.8 ? '#ef4444' : (metrics.heapUsedMb / metrics.heapMaxMb) > 0.5 ? '#f59e0b' : '#10b981',
-                                transition: 'width 0.5s ease-in-out, background-color 0.5s ease'
+                                transition: 'width 0.5s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.5s ease'
                             }}></div>
                         </div>
                     </div>
                 )}
             </div>
-
-            {/* Alt Panel: React Flow Canvas (Tuval) */}
+ 
+            {/* React Flow Tuvali */}
             <div style={{ flex: 1, position: 'relative', background: '#f8fafc' }}>
-                <ReactFlow nodes={nodes} edges={[]}>
-                    <Background />
+                <ReactFlow nodes={nodes} edges={[]} nodeTypes={nodeTypes}>
+                    <Background color="#cbd5e1" gap={20} size={2} />
                     <Controls />
-                    <MiniMap />
+                    <MiniMap
+                        nodeColor={(node) => {
+                            switch (node.data?.task?.status) {
+                                case 'RUNNING': return '#3b82f6';
+                                case 'SUCCESS': return '#10b981';
+                                case 'FAILED': return '#ef4444';
+                                default: return '#94a3b8';
+                            }
+                        }}
+                    />
                 </ReactFlow>
             </div>
         </div>
