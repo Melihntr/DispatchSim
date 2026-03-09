@@ -7,7 +7,6 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -16,7 +15,9 @@ public class MetricsCollectorService {
 
     private final MeterRegistry meterRegistry;
     private final SimpMessagingTemplate messagingTemplate;
-    private final ThreadPoolExecutor dispatchExecutor; // Kuyruk ve thread durumunu okumak için
+    
+    // DÜZELTME BURADA: Artık doğrudan ThreadPool'u değil, bizim servisi alıyoruz
+    private final TaskDispatcherService taskDispatcherService; 
 
     // Her 1 saniyede bir (1000 ms) çalışıp frontend'e sistem durumunu fırlatır
     @Scheduled(fixedRate = 1000)
@@ -36,9 +37,10 @@ public class MetricsCollectorService {
                 // Uygulama ilk kalktığında GC event'i henüz oluşmamış olabilir, sessizce geç.
             }
 
-            // Thread ve Kuyruk durumu
-            int activeThreads = dispatchExecutor.getActiveCount();
-            int queuedTasks = dispatchExecutor.getQueue().size();
+            // DÜZELTME BURADA: Artık her saniye GÜNCEL havuzun verilerini okuyoruz
+            int activeThreads = taskDispatcherService.getActiveThreadCount();
+            int queuedTasks = taskDispatcherService.getQueueSize();
+            int maxThreads = taskDispatcherService.getMaxThreads(); 
 
             // DTO'yu oluştur
             SystemMetrics metrics = SystemMetrics.builder()
@@ -48,6 +50,7 @@ public class MetricsCollectorService {
                     .gcPauseTotalTimeMs(gcTotalTime)
                     .activeThreads(activeThreads)
                     .queuedTasks(queuedTasks)
+                    .maxThreads(maxThreads) // Eğer DTO'nda maxThreads yoksa eklemeyi unutma!
                     .build();
 
             // WebSocket üzerinden yayınla

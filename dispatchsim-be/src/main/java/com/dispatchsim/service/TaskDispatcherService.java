@@ -24,8 +24,8 @@ public class TaskDispatcherService {
     private final TaskRepository taskRepository;
     private final WebSocketPublisher webSocketPublisher;
     
-    private final Object lockA = new Object();
-    private final Object lockB = new Object();
+    private Object lockA = new Object();
+    private Object lockB = new Object();
     
     private int consecutiveFailures = 0;
     private boolean isCircuitOpen = false;
@@ -78,22 +78,26 @@ public class TaskDispatcherService {
     }
 
     public void clearAll() {
-        // 1. Eski kilitlenmiş havuzu zorla kapat
         dispatchExecutor.shutdownNow();
         
-        // 2. Yepyeni, tertemiz bir thread havuzu yarat
         dispatchExecutor = new ThreadPoolExecutor(
                 4, 8, 60L, TimeUnit.SECONDS,
                 new PriorityBlockingQueue<>(100)
         );
         
-        // 3. Veritabanındaki her şeyi sil
         taskRepository.deleteAll();
         
-        // 4. Frontend'e "Ekranı Temizle" komutu gönder
+        // --- YENİ EKLENEN KISIM ---
+        // Zombilerin elindeki zehirli kilitleri çöpe atıp, sisteme yeni kilitler veriyoruz!
+        lockA = new Object();
+        lockB = new Object();
+        // -------------------------
+
+        isCircuitOpen = false;
+        consecutiveFailures = 0;
+
         webSocketPublisher.publishTaskUpdate(new TaskEvent("CLEAR_ALL", null));
-        
-        log.info("Sistem ve Thread Havuzu tamamen sıfırlandı!");
+        log.info("Sistem, Kilitler ve Thread Havuzu tamamen sıfırlandı!");
     }
 
     public void triggerDeadlockSimulation() {
@@ -261,36 +265,39 @@ public class TaskDispatcherService {
         }
     }
 
-    // 2. CIRCUIT BREAKER SİMÜLASYONU
+ // --------------------------------------------------
+    // 2. KUSURSUZ ZAMANLAMALI CIRCUIT BREAKER SİMÜLASYONU
+    // --------------------------------------------------
     public void triggerCircuitBreakerSimulation() {
         new Thread(() -> {
             try {
-                // Şalteri attırmak için peş peşe 3 HATALI görev yolluyoruz (FAILED olacak)
-                for(int i=0; i<3; i++) {
+                log.warn("CIRCUIT BREAKER: 3 Hatalı Görev Yollanıyor...");
+                for(int i = 0; i < 3; i++) {
                     submitSimulatedTask(true); 
-                    Thread.sleep(800);
+                    // DÜZELTME: Görev 1 saniye sürüyor. 1.2 sn bekliyoruz ki patladığından emin olalım!
+                    Thread.sleep(1200); 
                 }
                 
-                // Şalter attı! Şimdi yolladığımız NORMAL görevler anında reddedilecek (CANCELLED)
-                for(int i=0; i<3; i++) {
+                log.warn("CIRCUIT BREAKER: Şalter Attı! Yeni görevler reddedilecek.");
+                for(int i = 0; i < 3; i++) {
                     submitSimulatedTask(false); 
-                    Thread.sleep(500);
+                    Thread.sleep(800);
                 }
 
-                // Soğuma süresini bekle (Half-Open moduna geçiş)
+                log.info("CIRCUIT BREAKER: 5 saniye soğuma (cooldown) bekleniyor...");
                 Thread.sleep(5000);
 
-                // Şalter Yarı-Açık: Bir test görevi yolla (SUCCESS olacak)
+                log.info("CIRCUIT BREAKER: Half-Open (Yarı Açık) test görevi...");
                 submitSimulatedTask(false);
                 Thread.sleep(1500);
 
-                // Sistem tamamen normale döndü (SUCCESS olacak)
+                log.info("CIRCUIT BREAKER: Sistem normale döndü, son görev...");
                 submitSimulatedTask(false);
             } catch (Exception e) {}
         }).start();
     }
 
-    // Circuit Breaker'ın kullandığı özel arka plan metodu
+    // Circuit Breaker'ın Arka Plan Metodu
     private void submitSimulatedTask(boolean willFail) {
         TaskEntity task = new TaskEntity();
         task.setType(TaskType.CPU_BOUND);
@@ -299,12 +306,11 @@ public class TaskDispatcherService {
         taskRepository.save(task);
         webSocketPublisher.publishTaskUpdate(new TaskEvent("WAITING", task));
 
-        // Şalter açıksa (OPEN) anında reddet! (CANCELLED)
         if (!checkCircuitBreaker()) {
             task.setStatus(TaskStatus.CANCELLED);
             taskRepository.save(task);
             webSocketPublisher.publishTaskUpdate(new TaskEvent("CANCELLED", task));
-            return;
+            return; // Görev iptal edildi, havuza hiç GİRMESİN.
         }
 
         Runnable action = () -> {
@@ -312,6 +318,7 @@ public class TaskDispatcherService {
                 task.setStatus(TaskStatus.RUNNING);
                 taskRepository.save(task);
                 webSocketPublisher.publishTaskUpdate(new TaskEvent("RUNNING", task));
+                
                 Thread.sleep(1000); 
                 
                 if (willFail) throw new RuntimeException("Sistem Hatası!");
@@ -326,10 +333,13 @@ public class TaskDispatcherService {
                 webSocketPublisher.publishTaskUpdate(new TaskEvent(task.getStatus().name(), task));
             }
         };
-        dispatchExecutor.execute(action);
+        DispatchTask dispatchTask = new DispatchTask(task, action);
+        dispatchExecutor.execute(dispatchTask);
     }
 
-    // 3. TIMEOUT SİMÜLASYONU
+ // --------------------------------------------------
+    // 1. ZIRHLANDIRILMIŞ TIMEOUT SİMÜLASYONU
+    // --------------------------------------------------
     public void triggerTimeoutSimulation() {
         TaskEntity task = new TaskEntity();
         task.setType(TaskType.IO_BOUND);
@@ -344,37 +354,48 @@ public class TaskDispatcherService {
                 taskRepository.save(task);
                 webSocketPublisher.publishTaskUpdate(new TaskEvent("RUNNING", task));
                 
-                // 5 saniyelik uzun işlem (Ama bizim sınırımız 2sn olacak)
-                Thread.sleep(5000); 
+                Thread.sleep(5000); // 5 saniyelik uzun işlem
+                
+                // Eğer kesilmeden buraya ulaştıysa, SUCCESS'tir
                 task.setStatus(TaskStatus.SUCCESS);
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt(); // Watcher tarafından kesildi
+                // İzleyici (Watcher) tarafından Future iptal edilirse buraya düşer
+                task.setStatus(TaskStatus.TIMEOUT);
+                Thread.currentThread().interrupt();
             } finally {
-                // Eğer Watcher iptal etmemişse SUCCESS kaydet, ettiyse TIMEOUT olarak kalır
-                TaskEntity latestTask = taskRepository.findById(task.getId()).orElse(task);
-                if (latestTask.getStatus() == TaskStatus.RUNNING) {
-                    latestTask.setStatus(TaskStatus.SUCCESS);
-                    taskRepository.save(latestTask);
-                    webSocketPublisher.publishTaskUpdate(new TaskEvent("SUCCESS", latestTask));
-                }
+                // Veritabanından okuma yapmadan, doğrudan elindeki net durumu kaydet!
+                taskRepository.save(task);
+                webSocketPublisher.publishTaskUpdate(new TaskEvent(task.getStatus().name(), task));
             }
         };
         
-        // Görevi submit() ile yolluyoruz ki iptal etme hakkımız olsun (Future objesi)
         java.util.concurrent.Future<?> future = dispatchExecutor.submit(action);
         
         // Watcher (İzleyici) Thread
         new Thread(() -> {
             try {
-                Thread.sleep(2000); // 2 saniye bekle, görev hala bitmediyse kafasına sık!
+                Thread.sleep(2000); // 2 saniye bekle
                 if (!future.isDone()) {
-                    future.cancel(true); // Thread'i zorla kes (InterruptedException fırlatır)
-                    task.setStatus(TaskStatus.TIMEOUT);
-                    taskRepository.save(task);
-                    webSocketPublisher.publishTaskUpdate(new TaskEvent("TIMEOUT", task));
+                    future.cancel(true); // Görevin kafasına sık (InterruptedException fırlatır)
+                    
+                    // ÖNEMLİ KONTROL: Eğer görev havuza giremeden kuyrukta beklerken iptal edildiyse:
+                    if (task.getStatus() == TaskStatus.WAITING) {
+                        task.setStatus(TaskStatus.TIMEOUT);
+                        taskRepository.save(task);
+                        webSocketPublisher.publishTaskUpdate(new TaskEvent("TIMEOUT", task));
+                    }
                 }
             } catch (Exception e) {}
         }).start();
+    }
+    public int getActiveThreadCount() {
+        return dispatchExecutor.getActiveCount();
+    }
+    public int getQueueSize() {
+        return dispatchExecutor.getQueue().size();
+    }
+    public int getMaxThreads() {
+        return dispatchExecutor.getMaximumPoolSize();
     }
     
 }
