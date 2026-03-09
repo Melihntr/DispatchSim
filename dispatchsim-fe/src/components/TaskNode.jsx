@@ -6,18 +6,22 @@ export default function TaskNode({ data }) {
  
     // Modern SaaS renk paleti
     const statusColors = {
-        WAITING: '#94a3b8',   // Gri (Kuyrukta)
-        RUNNING: '#3b82f6',   // Mavi (İşleniyor)
-        SUCCESS: '#10b981',   // Zümrüt Yeşili (Bitti)
-        FAILED: '#ef4444',    // Kırmızı (Hata)
-        CANCELLED: '#f59e0b', // Turuncu (İptal)
+        WAITING: '#94a3b8',
+        RUNNING: '#3b82f6',
+        BLOCKED: '#9333ea',   // Koyu Mor (YENİ)
+        SUCCESS: '#10b981',
+        FAILED: '#ef4444',
+        CANCELLED: '#f59e0b',
+        TIMEOUT: '#ec4899',
     };
- 
+
     const color = statusColors[task.status] || '#ffffff';
     const isRunning = task.status === 'RUNNING';
- 
+    const isBlocked = task.status === 'BLOCKED'; // YENİ
+
     return (
-        <div style={{
+        // div'in className özelliğine shake animasyonunu bağlıyoruz
+        <div className={isBlocked ? 'shake-animation' : ''} style={{
             background: 'white',
             borderRadius: '12px',
             padding: '16px',

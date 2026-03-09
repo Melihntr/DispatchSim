@@ -53,3 +53,23 @@ html, body, #root {
 .btn-red { background: #ef4444; }
 .btn-purple { background: #8b5cf6; }
 .btn-dark { background: #475569; }
+
+@keyframes shake {
+  0% { transform: translate(1px, 1px) rotate(0deg); }
+  10% { transform: translate(-1px, -2px) rotate(-1deg); }
+  20% { transform: translate(-3px, 0px) rotate(1deg); }
+  30% { transform: translate(3px, 2px) rotate(0deg); }
+  40% { transform: translate(1px, -1px) rotate(1deg); }
+  50% { transform: translate(-1px, 2px) rotate(-1deg); }
+  60% { transform: translate(-3px, 1px) rotate(0deg); }
+  70% { transform: translate(3px, 1px) rotate(-1deg); }
+  80% { transform: translate(-1px, -1px) rotate(1deg); }
+  90% { transform: translate(1px, 2px) rotate(0deg); }
+  100% { transform: translate(1px, -2px) rotate(-1deg); }
+}
+
+.shake-animation {
+  animation: shake 0.5s infinite;
+  border: 2px solid #9333ea !important; /* Mor çerçeve */
+  box-shadow: 0 0 15px rgba(147, 51, 234, 0.8) !important;
+}

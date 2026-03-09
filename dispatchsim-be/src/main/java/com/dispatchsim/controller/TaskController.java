@@ -35,4 +35,36 @@ public class TaskController {
     public ResponseEntity<List<TaskEntity>> getAllTasks() {
         return ResponseEntity.ok(taskRepository.findAll());
     }
+ // Tüm sistemi sıfırlar
+    @DeleteMapping("/clear")
+    public ResponseEntity<Void> clearAllTasks() {
+        taskDispatcherService.clearAll();
+        return ResponseEntity.ok().build();
+    }
+    @PostMapping("/deadlock")
+    public ResponseEntity<Void> triggerDeadlock() {
+        taskDispatcherService.triggerDeadlockSimulation();
+        return ResponseEntity.ok().build();
+    }
+    @PostMapping("/starvation")
+    public ResponseEntity<Void> triggerStarvation() {
+        taskDispatcherService.triggerStarvationSimulation();
+        return ResponseEntity.ok().build();
+    }
+    @PostMapping("/loom")
+    public ResponseEntity<Void> triggerLoom(@RequestParam boolean virtual) {
+        taskDispatcherService.triggerLoomSimulation(virtual);
+        return ResponseEntity.ok().build();
+    }
+    @PostMapping("/circuit-breaker")
+    public ResponseEntity<Void> triggerCircuitBreaker() {
+        taskDispatcherService.triggerCircuitBreakerSimulation();
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/timeout")
+    public ResponseEntity<Void> triggerTimeout() {
+        taskDispatcherService.triggerTimeoutSimulation();
+        return ResponseEntity.ok().build();
+    }
 }

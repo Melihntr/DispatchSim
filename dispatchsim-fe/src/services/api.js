@@ -11,3 +11,19 @@ export const createTask = async (type, priority) => {
     const response = await axios.post(API_URL, { type, priority });
     return response.data;
 };
+
+export const clearAllTasks = async () => {
+    await axios.delete(`${API_URL}/clear`);
+};
+
+export const triggerDeadlock = async () => {
+    await axios.post(`${API_URL}/deadlock`);
+};
+export const triggerStarvation = async () => {
+    await axios.post(`${API_URL}/starvation`);
+};
+export const triggerLoom = async (isVirtual) => {
+    await axios.post(`${API_URL}/loom?virtual=${isVirtual}`);
+};
+export const triggerCircuitBreaker = async () => { await axios.post(`${API_URL}/circuit-breaker`); };
+export const triggerTimeout = async () => { await axios.post(`${API_URL}/timeout`); };

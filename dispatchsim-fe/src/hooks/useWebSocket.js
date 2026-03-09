@@ -32,16 +32,26 @@ export const useWebSocket = () => {
 
                 client.subscribe('/topic/tasks', (message) => {
                     const event = JSON.parse(message.body);
-                    setTasks((prevTasks) => {
-                        const existingTaskIndex = prevTasks.findIndex(t => t.id === event.task.id);
-                        if (existingTaskIndex >= 0) {
-                            const updatedTasks = [...prevTasks];
-                            updatedTasks[existingTaskIndex] = event.task;
-                            return updatedTasks;
-                        } else {
-                            return [...prevTasks, event.task];
-                        }
-                    });
+
+                    // 1. KONTROL: Eğer gelen komut CLEAR_ALL ise listeyi tamamen boşalt ve DUR
+                    if (event.eventType === 'CLEAR_ALL') {
+                        setTasks([]);
+                        return;
+                    }
+
+                    // 2. GÜVENLİK DUVARI: Sadece event.task gerçekten varsa güncelleme yap
+                    if (event.task && event.task.id != null) {
+                        setTasks((prevTasks) => {
+                            const existingTaskIndex = prevTasks.findIndex(t => t.id === event.task.id);
+                            if (existingTaskIndex >= 0) {
+                                const updatedTasks = [...prevTasks];
+                                updatedTasks[existingTaskIndex] = event.task;
+                                return updatedTasks;
+                            } else {
+                                return [...prevTasks, event.task];
+                            }
+                        });
+                    }
                 });
 
                 client.subscribe('/topic/metrics', (message) => {

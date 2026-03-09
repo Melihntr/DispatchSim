@@ -1,10 +1,11 @@
 package com.dispatchsim.model.enums;
 
 public enum TaskStatus {
-    WAITING,   // Kuyrukta bekliyor
-    RUNNING,   // Thread tarafından işleniyor
-    SUCCESS,   // Başarıyla bitti
-    TIMEOUT,   // Süre aşımına uğradı
-    FAILED,    // Hata aldı
-    CANCELLED  // İptal edildi
+    WAITING,
+    RUNNING,
+    BLOCKED,   // YENİ EKLENDİ: Deadlock durumunda buraya geçecek
+    SUCCESS,
+    TIMEOUT,
+    FAILED,
+    CANCELLED
 }
