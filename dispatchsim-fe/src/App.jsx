@@ -75,8 +75,8 @@ export default function App() {
                 {/* Sol Taraf: Başlık ve Butonlar */}
                 <div style={{ flex: 1, marginRight: '20px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: '800', letterSpacing: '1px' }}>
-                            ⚡ DispatchSim Console
+                        <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '650', letterSpacing: '1px' }}>
+                            DispatchSim Console
                         </h2>
                         {/* Temizle Butonunu yukarı başlığın yanına aldık */}
                         <button className="modern-btn btn-dark" style={{ padding: '6px 12px', fontSize: '12px' }} onClick={handleClearAll}>
@@ -89,25 +89,25 @@ export default function App() {
  
                         {/* Grup 1: Temel Görevler */}
                         <div style={{ display: 'flex', gap: '6px', paddingRight: '10px', borderRight: '1px solid #334155' }}>
-                            <button className="modern-btn btn-blue" style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => handleCreateTask('CPU_BOUND', 'LOW')}>⚙️ CPU (Low)</button>
-                            <button className="modern-btn btn-red" style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => handleCreateTask('CPU_BOUND', 'CRITICAL')}>🚨 CPU (Crit)</button>
-                            <button className="modern-btn btn-purple" style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => handleCreateTask('IO_BOUND', 'MEDIUM')}>🌐 IO (Med)</button>
+                            <button className="modern-btn btn-blue" style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => handleCreateTask('CPU_BOUND', 'LOW')}>CPU (Low)</button>
+                            <button className="modern-btn btn-red" style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => handleCreateTask('CPU_BOUND', 'CRITICAL')}>CPU (Crit)</button>
+                            <button className="modern-btn btn-purple" style={{ padding: '6px 10px', fontSize: '11px' }} onClick={() => handleCreateTask('IO_BOUND', 'MEDIUM')}>IO (Med)</button>
                         </div>
  
                         {/* Grup 2: Senaryolar */}
                         <div style={{ display: 'flex', gap: '6px', paddingRight: '10px', borderRight: '1px solid #334155' }}>
-                            <button className="modern-btn" style={{ background: '#7e22ce', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerDeadlock()}>☠️ Deadlock</button>
-                            <button className="modern-btn" style={{ background: '#ea580c', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerStarvation()}>⏳ Starvation</button>
-                            <button className="modern-btn" style={{ background: '#be123c', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerCircuitBreaker()}>🔌 Şalter</button>
-                            <button className="modern-btn" style={{ background: '#ec4899', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerTimeout()}>⏱️ Timeout</button>
-                            <button className="modern-btn" style={{ background: '#854d0e', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerMemoryLeak()}>💥 Mem Leak</button>
+                            <button className="modern-btn" style={{ background: '#7e22ce', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerDeadlock()}>Deadlock</button>
+                            <button className="modern-btn" style={{ background: '#ea580c', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerStarvation()}>Starvation</button>
+                            <button className="modern-btn" style={{ background: '#be123c', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerCircuitBreaker()}>Şalter</button>
+                            <button className="modern-btn" style={{ background: '#ec4899', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerTimeout()}>Timeout</button>
+                            <button className="modern-btn" style={{ background: '#854d0e', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerMemoryLeak()}>Mem Leak</button>
                         </div>
  
                         {/* Grup 3: Modern Mimariler */}
                         <div style={{ display: 'flex', gap: '6px' }}>
-                            <button className="modern-btn" style={{ background: '#4b5563', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerLoom(false)}>🐢 Platform (50)</button>
-                            <button className="modern-btn" style={{ background: '#059669', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerLoom(true)}>🚀 Virtual (50)</button>
-                            <button className="modern-btn" style={{ background: '#0891b2', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerAutoScale()}>⚖️ Auto-Scale</button>
+                            <button className="modern-btn" style={{ background: '#4b5563', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerLoom(false)}>Platform (50)</button>
+                            <button className="modern-btn" style={{ background: '#059669', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerLoom(true)}>Virtual (50)</button>
+                            <button className="modern-btn" style={{ background: '#0891b2', padding: '6px 10px', fontSize: '11px' }} onClick={async () => await triggerAutoScale()}>Auto-Scale</button>
                         </div>
                     </div>
                 </div>
