@@ -27,3 +27,10 @@ export const triggerLoom = async (isVirtual) => {
 };
 export const triggerCircuitBreaker = async () => { await axios.post(`${API_URL}/circuit-breaker`); };
 export const triggerTimeout = async () => { await axios.post(`${API_URL}/timeout`); };
+export const triggerAutoScale = async () => {
+    await axios.post(`${API_URL}/autoscale`);
+};
+export const triggerMemoryLeak = async () => {
+    await axios.post(`${API_URL}/memory-leak`);
+};
+

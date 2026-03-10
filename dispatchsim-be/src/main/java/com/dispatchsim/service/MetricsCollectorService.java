@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
 
 import java.util.concurrent.TimeUnit;
 
@@ -15,32 +17,37 @@ public class MetricsCollectorService {
 
     private final MeterRegistry meterRegistry;
     private final SimpMessagingTemplate messagingTemplate;
-    
+
     // DÜZELTME BURADA: Artık doğrudan ThreadPool'u değil, bizim servisi alıyoruz
-    private final TaskDispatcherService taskDispatcherService; 
+    private final TaskDispatcherService taskDispatcherService;
 
     // Her 1 saniyede bir (1000 ms) çalışıp frontend'e sistem durumunu fırlatır
+
+
+    // ... Sınıfın içi ...
+
     @Scheduled(fixedRate = 1000)
     public void publishMetrics() {
         try {
-            // JVM Heap Memory kullanımı (Byte -> Megabyte çevrimi)
-            double heapUsed = meterRegistry.get("jvm.memory.used").tag("area", "heap").gauge().value() / (1024.0 * 1024.0);
-            double heapMax = meterRegistry.get("jvm.memory.max").tag("area", "heap").gauge().value() / (1024.0 * 1024.0);
+            // --- DÜZELTİLEN KISIM: Doğrudan JVM Management Factory'den okuyoruz ---
+            MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
+            double heapUsed = memoryBean.getHeapMemoryUsage().getUsed() / (1024.0 * 1024.0);
+            double heapMax = memoryBean.getHeapMemoryUsage().getMax() / (1024.0 * 1024.0);
+            // ----------------------------------------------------------------------
 
-            // GC Duraklama (Pause) metrikleri
+            // GC Duraklama (Pause) metrikleri (Burası Micrometer ile kalabilir, sorunsuz çalışır)
             long gcCount = 0;
             double gcTotalTime = 0;
             try {
                 gcCount = (long) meterRegistry.get("jvm.gc.pause").timer().count();
                 gcTotalTime = meterRegistry.get("jvm.gc.pause").timer().totalTime(TimeUnit.MILLISECONDS);
             } catch (Exception e) {
-                // Uygulama ilk kalktığında GC event'i henüz oluşmamış olabilir, sessizce geç.
+                // Sessizce geç
             }
 
-            // DÜZELTME BURADA: Artık her saniye GÜNCEL havuzun verilerini okuyoruz
             int activeThreads = taskDispatcherService.getActiveThreadCount();
             int queuedTasks = taskDispatcherService.getQueueSize();
-            int maxThreads = taskDispatcherService.getMaxThreads(); 
+            int maxThreads = taskDispatcherService.getMaxThreads();
 
             // DTO'yu oluştur
             SystemMetrics metrics = SystemMetrics.builder()
@@ -50,14 +57,13 @@ public class MetricsCollectorService {
                     .gcPauseTotalTimeMs(gcTotalTime)
                     .activeThreads(activeThreads)
                     .queuedTasks(queuedTasks)
-                    .maxThreads(maxThreads) // Eğer DTO'nda maxThreads yoksa eklemeyi unutma!
+                    .maxThreads(maxThreads)
                     .build();
 
             // WebSocket üzerinden yayınla
             messagingTemplate.convertAndSend("/topic/metrics", metrics);
 
         } catch (Exception e) {
-            // Metrik okuma sırasında geçici hatalar olabilir, logla ama sistemi durdurma
             System.err.println("Metrik okunurken hata: " + e.getMessage());
         }
     }

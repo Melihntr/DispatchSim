@@ -67,4 +67,15 @@ public class TaskController {
         taskDispatcherService.triggerTimeoutSimulation();
         return ResponseEntity.ok().build();
     }
+    @PostMapping("/autoscale")
+    public ResponseEntity<Void> triggerAutoScale() {
+        taskDispatcherService.triggerAutoScaleSimulation();
+        return ResponseEntity.ok().build();
+    }
+    @CrossOrigin
+    @PostMapping("/memory-leak")
+    public ResponseEntity<Void> triggerMemoryLeak() {
+        taskDispatcherService.triggerMemoryLeakSimulation();
+        return ResponseEntity.ok().build();
+    }
 }

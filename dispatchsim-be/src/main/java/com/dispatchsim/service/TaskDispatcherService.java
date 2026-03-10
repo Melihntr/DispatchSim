@@ -24,8 +24,7 @@ public class TaskDispatcherService {
     private final TaskRepository taskRepository;
     private final WebSocketPublisher webSocketPublisher;
     
-    private Object lockA = new Object();
-    private Object lockB = new Object();
+
     
     private int consecutiveFailures = 0;
     private boolean isCircuitOpen = false;
@@ -89,8 +88,8 @@ public class TaskDispatcherService {
         
         // --- YENİ EKLENEN KISIM ---
         // Zombilerin elindeki zehirli kilitleri çöpe atıp, sisteme yeni kilitler veriyoruz!
-        lockA = new Object();
-        lockB = new Object();
+        // lockA = new Object();
+        // lockB = new Object();
         // -------------------------
 
         isCircuitOpen = false;
@@ -102,6 +101,9 @@ public class TaskDispatcherService {
 
     public void triggerDeadlockSimulation() {
         log.warn("DEADLOCK SİMÜLASYONU BAŞLATILIYOR!");
+
+        Object lockA = new Object();
+        Object lockB = new Object();
 
         TaskEntity task1 = new TaskEntity();
         task1.setType(TaskType.CPU_BOUND);
@@ -340,52 +342,131 @@ public class TaskDispatcherService {
  // --------------------------------------------------
     // 1. ZIRHLANDIRILMIŞ TIMEOUT SİMÜLASYONU
     // --------------------------------------------------
-    public void triggerTimeoutSimulation() {
-        TaskEntity task = new TaskEntity();
-        task.setType(TaskType.IO_BOUND);
-        task.setPriority(Priority.CRITICAL);
-        task.setStatus(TaskStatus.WAITING);
-        taskRepository.save(task);
-        webSocketPublisher.publishTaskUpdate(new TaskEvent("WAITING", task));
+ public void triggerTimeoutSimulation() {
+     TaskEntity task = new TaskEntity();
+     task.setType(TaskType.IO_BOUND);
+     task.setPriority(Priority.CRITICAL);
+     task.setStatus(TaskStatus.WAITING);
+     taskRepository.save(task);
+     webSocketPublisher.publishTaskUpdate(new TaskEvent("WAITING", task));
 
-        Runnable action = () -> {
-            try {
-                task.setStatus(TaskStatus.RUNNING);
-                taskRepository.save(task);
-                webSocketPublisher.publishTaskUpdate(new TaskEvent("RUNNING", task));
-                
-                Thread.sleep(5000); // 5 saniyelik uzun işlem
-                
-                // Eğer kesilmeden buraya ulaştıysa, SUCCESS'tir
-                task.setStatus(TaskStatus.SUCCESS);
-            } catch (InterruptedException e) {
-                // İzleyici (Watcher) tarafından Future iptal edilirse buraya düşer
-                task.setStatus(TaskStatus.TIMEOUT);
-                Thread.currentThread().interrupt();
-            } finally {
-                // Veritabanından okuma yapmadan, doğrudan elindeki net durumu kaydet!
-                taskRepository.save(task);
-                webSocketPublisher.publishTaskUpdate(new TaskEvent(task.getStatus().name(), task));
-            }
-        };
-        
-        java.util.concurrent.Future<?> future = dispatchExecutor.submit(action);
-        
-        // Watcher (İzleyici) Thread
+     // Hangi thread'in bu görevi aldığını tutacağımız referans
+     java.util.concurrent.atomic.AtomicReference<Thread> executingThread = new java.util.concurrent.atomic.AtomicReference<>();
+
+     Runnable action = () -> {
+         executingThread.set(Thread.currentThread()); // Çalışan thread kendini belli ediyor
+         try {
+             task.setStatus(TaskStatus.RUNNING);
+             taskRepository.save(task);
+             webSocketPublisher.publishTaskUpdate(new TaskEvent("RUNNING", task));
+
+             Thread.sleep(5000);
+             task.setStatus(TaskStatus.SUCCESS);
+         } catch (InterruptedException e) {
+             task.setStatus(TaskStatus.TIMEOUT);
+             Thread.currentThread().interrupt();
+         } finally {
+             taskRepository.save(task);
+             webSocketPublisher.publishTaskUpdate(new TaskEvent(task.getStatus().name(), task));
+         }
+     };
+
+     // Artık submit() değil, kuyruğun sevdiği DispatchTask ile execute() yapıyoruz!
+     dispatchExecutor.execute(new DispatchTask(task, action));
+
+     // İzleyici (Watcher) Thread
+     new Thread(() -> {
+         try {
+             Thread.sleep(2000);
+             // Eğer görev hala RUNNING ise ve çalışan thread belliyse, onu zorla kes!
+             if (task.getStatus() == TaskStatus.RUNNING && executingThread.get() != null) {
+                 executingThread.get().interrupt();
+             }
+             // Eğer şalter vb. yüzünden havuza giremeden WAITING'de kaldıysa, direkt iptal et
+             else if (task.getStatus() == TaskStatus.WAITING) {
+                 task.setStatus(TaskStatus.TIMEOUT);
+                 taskRepository.save(task);
+                 webSocketPublisher.publishTaskUpdate(new TaskEvent("TIMEOUT", task));
+             }
+         } catch (Exception e) {}
+     }).start();
+ }
+    public void triggerAutoScaleSimulation() {
+        log.warn("AUTO-SCALE: Simülasyon başladı. Sisteme ani yük (Spike) bindiriliyor...");
+
+        // 1. Sisteme aniden 20 tane uzun süren CPU görevi fırlatıyoruz (Kuyruk şişecek!)
+        for (int i = 0; i < 20; i++) {
+            TaskEntity task = new TaskEntity();
+            task.setType(TaskType.CPU_BOUND); // Her biri 3 saniye sürer
+            task.setPriority(Priority.MEDIUM);
+            submitTask(task);
+        }
+
+        // 2. İzleyici (Watcher) Thread: Kuyruğu izleyip havuzu büyütecek ve küçültecek
         new Thread(() -> {
             try {
-                Thread.sleep(2000); // 2 saniye bekle
-                if (!future.isDone()) {
-                    future.cancel(true); // Görevin kafasına sık (InterruptedException fırlatır)
-                    
-                    // ÖNEMLİ KONTROL: Eğer görev havuza giremeden kuyrukta beklerken iptal edildiyse:
-                    if (task.getStatus() == TaskStatus.WAITING) {
-                        task.setStatus(TaskStatus.TIMEOUT);
-                        taskRepository.save(task);
-                        webSocketPublisher.publishTaskUpdate(new TaskEvent("TIMEOUT", task));
-                    }
-                }
+                // Sistemin zorlandığını fark etmesi için 2 saniye bekle
+                Thread.sleep(2000);
+
+                log.warn("AUTO-SCALE [SCALE OUT]: Yüksek yük tespit edildi! Havuz kapasitesi 4'ten 8'e çıkarılıyor.");
+                // Önce Max'ı, sonra Core'u artırmalıyız (Java kuralı)
+                dispatchExecutor.setMaximumPoolSize(8);
+                dispatchExecutor.setCorePoolSize(8);
+
+                // Sistem 8 thread ile tam gaz çalışırken metrikleri izleyebilmen için 10 saniye bekle
+                Thread.sleep(10000);
+
+                log.info("AUTO-SCALE [SCALE IN]: Yük azaldı, kaynak israfını önlemek için kapasite tekrar 4'e düşürülüyor.");
+                // Önce Core'u, sonra Max'ı düşürmeliyiz (Java kuralı)
+                dispatchExecutor.setCorePoolSize(4);
+                dispatchExecutor.setMaximumPoolSize(4);
+
             } catch (Exception e) {}
+        }).start();
+    }
+    // --- MEMORY LEAK & GC STRESS SİMÜLASYONU ---
+    // --- GERÇEKÇİ MEMORY LEAK & GC STRESS SİMÜLASYONU ---
+    public void triggerMemoryLeakSimulation() {
+        log.warn("MEMORY LEAK SİMÜLASYONU BAŞLATILIYOR! Heap kapasitesi zorlanacak...");
+
+        new Thread(() -> {
+            java.util.List<byte[]> memoryLeakList = new java.util.ArrayList<>();
+            try {
+                // Sistemin tahsis ettiği Maksimum RAM miktarını öğren
+                long maxMemory = Runtime.getRuntime().maxMemory();
+                long targetMemory = (long) (maxMemory * 0.85); // Hedefimiz %85 doluluğa ulaşıp kırmızı barı görmek!
+
+                log.info("Hedeflenen Doluluk: " + (targetMemory / (1024*1024)) + " MB");
+
+                // JVM'i patlatmadan (OOM yemeden) %85'e kadar doldur
+                for (int i = 0; i < 200; i++) {
+                    long usedMemory = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+
+                    if (usedMemory >= targetMemory) {
+                        log.warn("🚨 HEAP %85 DOLDU! Daha fazla doldurmuyoruz, sistemi izlemeye alıyoruz.");
+                        break;
+                    }
+
+                    // Her adımda acımasızca 50 MB'lık (dev) bir obje yarat ve listeye at (Çöp toplayıcı silemesin)
+                    memoryLeakList.add(new byte[50 * 1024 * 1024]);
+
+                    // Frontend'deki metrik panelinin (1 sn'de bir yenilenen) çubuğun yükselişini yakalayabilmesi için biraz bekle
+                    Thread.sleep(300);
+                }
+
+                // Ekrandaki o Kırmızı Barı ve GC çırpınışlarını izleyebilmen için sistemi 5 saniye bu eziyette tut!
+                log.info("Sistem 5 saniye boyunca %85 yük altında tutuluyor...");
+                Thread.sleep(5000);
+
+            } catch (OutOfMemoryError e) {
+                log.error("💥 OutOfMemoryError! Hafıza beklenenden hızlı patladı!");
+            } catch (Exception e) {
+            } finally {
+                // Şov bitti, sistemi kurtar!
+                memoryLeakList.clear(); // Referansları kopar
+                System.gc(); // Çöp toplayıcıya "Hepsini temizle" emri ver
+                log.info("Sistem hafızası boşaltıldı, tehlike geçti. Bar normale dönüyor.");
+            }
         }).start();
     }
     public int getActiveThreadCount() {
