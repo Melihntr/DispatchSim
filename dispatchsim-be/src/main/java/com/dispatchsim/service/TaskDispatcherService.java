@@ -461,10 +461,10 @@ public class TaskDispatcherService {
             } catch (OutOfMemoryError e) {
                 log.error("💥 OutOfMemoryError! Hafıza beklenenden hızlı patladı!");
             } catch (Exception e) {
+                log.error("Bellek simülasyonu kesildi: {}", e.getMessage()); // Boş bırakma, log ekle!
             } finally {
-                // Şov bitti, sistemi kurtar!
-                memoryLeakList.clear(); // Referansları kopar
-                System.gc(); // Çöp toplayıcıya "Hepsini temizle" emri ver
+                memoryLeakList.clear();
+                System.gc();
                 log.info("Sistem hafızası boşaltıldı, tehlike geçti. Bar normale dönüyor.");
             }
         }).start();
