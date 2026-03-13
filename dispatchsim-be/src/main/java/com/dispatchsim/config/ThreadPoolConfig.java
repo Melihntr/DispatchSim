@@ -9,11 +9,27 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-
+/**
+ * Uygulama genelinde kullanılacak farklı iş parçacığı havuzu (Thread Pool)
+ * stratejilerini yapılandıran konfigürasyon sınıfıdır.
+ * * Bu sınıf, geleneksel havuzlar ile Project Loom (Sanal Thread'ler) arasındaki
+ * performans farklarını ve davranış değişimlerini gözlemlemek için tasarlanmıştır.
+ *
+ * @author Melihntr
+ */
 @Configuration
 public class ThreadPoolConfig {
 
-    // 1. Geleneksel Sabit Havuz (Contention ve Starvation görmek için)
+    /**
+     * Geleneksel, öncelik tabanlı sabit bir iş parçacığı havuzu oluşturur.
+     * * Bu havuz, kaynak kısıtlılığı (resource contention) ve düşük öncelikli görevlerin
+     * kaynak beklediği 'Starvation' (Açlık) senaryolarını simüle etmek için kullanılır.
+     * * Özellikler:
+     * - Çekirdek (Core) Boyutu: 4
+     * - Maksimum Boyut: 8
+     * - Kuyruk Yapısı: PriorityBlockingQueue (Öncelik sıralı)
+     * * @return Yapılandırılmış {@link ThreadPoolExecutor} nesnesi
+     */
     @Bean("fixedThreadPool")
     public ThreadPoolExecutor fixedThreadPool() {
         return new ThreadPoolExecutor(
@@ -22,14 +38,25 @@ public class ThreadPoolConfig {
         );
     }
 
-    // 2. Virtual Threads (Project Loom - Limitsiz, hafif threadler)
-    // IO_Bound işlerde binlerce thread'in çökmeden çalıştığını göstereceğiz.
+    /**
+     * Project Loom kapsamında sunulan Sanal İş Parçacığı (Virtual Thread) havuzunu oluşturur.
+     * * Binlerce IO-Bound (Giriş/Çıkış odaklı) görevin, işletim sistemi thread'lerini
+     * tüketmeden ve sistemi çökertmeden nasıl eşzamanlı çalışabildiğini test etmek
+     * amacıyla kullanılır.
+     * * @return Her görev için yeni bir sanal thread oluşturan {@link ExecutorService}
+     */
     @Bean("virtualThreadPool")
     public ExecutorService virtualThreadPool() {
         return Executors.newVirtualThreadPerTaskExecutor();
     }
-    
-    // 3. Cached Thread Pool (Geldikçe thread açan, Multi-core scaling analizi için)
+
+    /**
+     * İhtiyaca göre dinamik olarak büyüyen ve boşta kalan thread'leri geri kazanan
+     * önbellekli iş parçacığı havuzu oluşturur.
+     * * Çok çekirdekli işlemcilerde dinamik ölçeklendirme ve hızlı işleme analizi
+     * yapmak için yapılandırılmıştır.
+     * * @return Dinamik ölçeklenen {@link ExecutorService}
+     */
     @Bean("cachedThreadPool")
     public ExecutorService cachedThreadPool() {
         return Executors.newCachedThreadPool();
