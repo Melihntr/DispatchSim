@@ -1,0 +1,68 @@
+/* MetricsPanel.css */
+
+/* Ana Grid Taşıyıcı */
+.metrics-panel-container {
+    background: #1e293b;
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+    align-items: center;
+}
+
+/* Üst Kısımdaki Bar İçeren Kutular (Threads & Heap) */
+.metric-box {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.metric-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #cbd5e1;
+}
+
+.metric-value-text {
+    font-weight: bold;
+    color: white;
+}
+
+/* İlerleme Çubuğu (Progress Bar) Arka Planı */
+.progress-bar-bg {
+    width: 100%;
+    background: #0f172a;
+    height: 6px;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+/* Alt Kısımdaki Koyu Kutular (Queue & GC) */
+.dark-info-box {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #0f172a;
+    padding: 4px 8px;
+    border-radius: 4px;
+    border: 1px solid #1e293b;
+}
+
+.info-label {
+    font-size: 11px;
+    color: #cbd5e1;
+}
+
+.gc-text {
+    font-size: 10px;
+    color: #94a3b8;
+}
+
+.gc-value {
+    color: #e2e8f0;
+    font-weight: bold;
+}

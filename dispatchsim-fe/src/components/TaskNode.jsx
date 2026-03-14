@@ -1,76 +1,79 @@
 import React from 'react';
 import { Handle, Position } from 'reactflow';
- 
+import './TaskNode.css'; // Temizlenmiş CSS'i içeri alıyoruz
+
+// Renk paletini bileşenin dışına aldık ki her re-render'da baştan oluşturulmasın (Performans Optimizasyonu)
+const STATUS_COLORS = {
+    WAITING: '#94a3b8',   // Gri
+    RUNNING: '#3b82f6',   // Mavi
+    BLOCKED: '#9333ea',   // Koyu Mor
+    SUCCESS: '#10b981',   // Yeşil
+    FAILED: '#ef4444',    // Kırmızı
+    CANCELLED: '#f59e0b', // Turuncu
+    TIMEOUT: '#ec4899',   // Pembe
+};
+
 export default function TaskNode({ data }) {
-    const { task } = data;
- 
-    // Modern SaaS renk paleti
-    const statusColors = {
-        WAITING: '#94a3b8',
-        RUNNING: '#3b82f6',
-        BLOCKED: '#9333ea',   // Koyu Mor (YENİ)
-        SUCCESS: '#10b981',
-        FAILED: '#ef4444',
-        CANCELLED: '#f59e0b',
-        TIMEOUT: '#ec4899',
+    // 🛡️ SAVUNMACI PROGRAMLAMA: Ya data boş gelirse? Ya task silinmişse? 
+    // Hata fırlatmak yerine null (hiçbir şey) çizip uygulamayı kurtarıyoruz.
+    const task = data?.task;
+    if (!task) return null;
+
+    // Güvenli değişken atamaları
+    const status = task.status || 'WAITING';
+    const color = STATUS_COLORS[status] || '#ffffff';
+    const isRunning = status === 'RUNNING';
+    const isBlocked = status === 'BLOCKED';
+
+    // Dinamik Stiller (Sadece duruma göre değişenleri burada tutuyoruz)
+    const dynamicContainerStyle = {
+        borderTop: `6px solid ${color}`,
+        boxShadow: isRunning ? '0 0 20px rgba(59, 130, 246, 0.6)' : '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
     };
 
-    const color = statusColors[task.status] || '#ffffff';
-    const isRunning = task.status === 'RUNNING';
-    const isBlocked = task.status === 'BLOCKED'; // YENİ
+    const dynamicPriorityColor = 
+        task.priority === 'CRITICAL' ? '#ef4444' : 
+        task.priority === 'HIGH' ? '#f59e0b' : '#334155';
 
     return (
-        // div'in className özelliğine shake animasyonunu bağlıyoruz
-        <div className={isBlocked ? 'shake-animation' : ''} style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '16px',
-            minWidth: '180px',
-            // Çalışan task'e mavi bir parlama (glow) efekti, diğerlerine standart gölge veriyoruz
-            boxShadow: isRunning ? '0 0 20px rgba(59, 130, 246, 0.6)' : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-            borderTop: `6px solid ${color}`,
-            fontFamily: '"Inter", system-ui, sans-serif',
-            position: 'relative',
-            transition: 'all 0.3s ease'
-        }}>
+        <div 
+            className={`task-node-container ${isBlocked ? 'shake-animation' : ''}`} 
+            style={dynamicContainerStyle}
+        >
             {/* Üst Kısım: ID ve Status Badge */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-                <span style={{ fontWeight: '800', color: '#334155', fontSize: '14px' }}>
-                    #{task.id}
+            <div className="task-node-header">
+                <span className="task-id-text">
+                    #{task.id || 'N/A'}
                 </span>
-                <span className={isRunning ? 'pulse-animation' : ''} style={{
-                    fontSize: '10px',
-                    padding: '4px 8px',
-                    borderRadius: '12px',
-                    background: color,
-                    color: 'white',
-                    fontWeight: 'bold',
-                    letterSpacing: '0.5px'
-                }}>
-                    {task.status}
+                <span 
+                    className={`task-status-badge ${isRunning ? 'pulse-animation' : ''}`} 
+                    style={{ background: color }}
+                >
+                    {status}
                 </span>
             </div>
- 
+
             {/* Orta Kısım: Detaylar */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                    <span style={{ color: '#64748b', fontWeight: '500' }}>Tipi:</span>
-                    <span style={{ fontWeight: '700', color: '#0f172a' }}>
+            <div className="task-details-wrapper">
+                <div className="task-detail-row">
+                    <span className="detail-label">Tipi:</span>
+                    <span className="detail-value-type">
                         {task.type === 'CPU_BOUND' ? '⚙️ CPU' : '🌐 IO'}
                     </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
-                    <span style={{ color: '#64748b', fontWeight: '500' }}>Öncelik:</span>
-                    <span style={{
-                        fontWeight: '800',
-                        color: task.priority === 'CRITICAL' ? '#ef4444' : task.priority === 'HIGH' ? '#f59e0b' : '#334155'
-                    }}>
-                        {task.priority === 'CRITICAL' ? '🚨 CRITICAL' : task.priority}
+                
+                <div className="task-detail-row">
+                    <span className="detail-label">Öncelik:</span>
+                    <span 
+                        className="detail-value-priority"
+                        style={{ color: dynamicPriorityColor }}
+                    >
+                        {task.priority === 'CRITICAL' ? '🚨 CRITICAL' : (task.priority || 'NORMAL')}
                     </span>
                 </div>
             </div>
- 
-            {/* React Flow'un ileride oklarla bağlayabilmesi için bağlantı noktaları (Gizli) */}
+
+            {/* React Flow Bağlantı Noktaları (Gizli) */}
             <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
             <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
         </div>

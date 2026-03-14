@@ -1,0 +1,92 @@
+/* TaskNode.css */
+
+/* Ana Node Taşıyıcı */
+.task-node-container {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    min-width: 180px;
+    font-family: "Inter", system-ui, sans-serif;
+    position: relative;
+    transition: all 0.3s ease;
+    /* Box-shadow ve border-top dinamik olduğu için inline kalacak */
+}
+
+/* Üst Kısım: Başlık ve Rozet (Badge) */
+.task-node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 8px;
+}
+
+.task-id-text {
+    font-weight: 800;
+    color: #334155;
+    font-size: 14px;
+}
+
+.task-status-badge {
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    color: white;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    /* Arka plan rengi dinamik olduğu için inline kalacak */
+}
+
+/* Orta Kısım: Detaylar */
+.task-details-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.task-detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+}
+
+.detail-label {
+    color: #64748b;
+    font-weight: 500;
+}
+
+.detail-value-type {
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.detail-value-priority {
+    font-weight: 800;
+    /* Renk dinamik olduğu için inline kalacak */
+}
+
+/* --------------------------------- */
+/* ANİMASYONLAR (Senior Dokunuşu)    */
+/* --------------------------------- */
+
+.pulse-animation {
+    animation: pulseGlow 1.5s infinite alternate;
+}
+
+@keyframes pulseGlow {
+    0% { transform: scale(1); box-shadow: 0 0 0 rgba(59, 130, 246, 0); }
+    100% { transform: scale(1.05); box-shadow: 0 0 8px rgba(59, 130, 246, 0.8); }
+}
+
+.shake-animation {
+    animation: shakeNode 0.5s infinite;
+}
+
+@keyframes shakeNode {
+    0% { transform: translateX(0); }
+    25% { transform: translateX(-3px) rotate(-1deg); }
+    50% { transform: translateX(3px) rotate(1deg); }
+    75% { transform: translateX(-3px) rotate(-1deg); }
+    100% { transform: translateX(0); }
+}
