@@ -48,7 +48,7 @@ public class TaskDispatcherService {
         task.setStatus(TaskStatus.WAITING);
         TaskEntity savedTask = taskRepository.save(task);
 
-        webSocketPublisher.publishTaskUpdate(new TaskEvent("WAITING", savedTask));
+        webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.WAITING.name(), savedTask));
 
         Runnable action = () -> {
             try {
@@ -56,7 +56,7 @@ public class TaskDispatcherService {
                 savedTask.setStartedAt(LocalDateTime.now());
                 taskRepository.save(savedTask);
 
-                webSocketPublisher.publishTaskUpdate(new TaskEvent("RUNNING", savedTask));
+                webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.RUNNING.name(), savedTask));
 
                 long sleepTime = savedTask.getType().name().equals("CPU_BOUND") ? 3000 : 1500;
                 Thread.sleep(sleepTime);
@@ -123,14 +123,14 @@ public class TaskDispatcherService {
         task2.setStatus(TaskStatus.WAITING);
         taskRepository.save(task2);
 
-        webSocketPublisher.publishTaskUpdate(new TaskEvent("WAITING", task1));
-        webSocketPublisher.publishTaskUpdate(new TaskEvent("WAITING", task2));
+        webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.WAITING.name(), task1));
+        webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.WAITING.name(), task2));
 
         Runnable action1 = () -> {
             try {
                 task1.setStatus(TaskStatus.RUNNING);
                 taskRepository.save(task1);
-                webSocketPublisher.publishTaskUpdate(new TaskEvent("RUNNING", task1));
+                webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.RUNNING.name(), task1));
 
                 synchronized (lockA) {
                     log.info("Task {} Lock A'yı aldı, B'yi bekliyor...", task1.getId());
@@ -138,7 +138,7 @@ public class TaskDispatcherService {
 
                     task1.setStatus(TaskStatus.BLOCKED);
                     taskRepository.save(task1);
-                    webSocketPublisher.publishTaskUpdate(new TaskEvent("BLOCKED", task1));
+                    webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.BLOCKED.name(), task1));
 
                     synchronized (lockB) {
                         task1.setStatus(TaskStatus.SUCCESS);
@@ -151,7 +151,7 @@ public class TaskDispatcherService {
             try {
                 task2.setStatus(TaskStatus.RUNNING);
                 taskRepository.save(task2);
-                webSocketPublisher.publishTaskUpdate(new TaskEvent("RUNNING", task2));
+                webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.RUNNING.name(), task2));
 
                 synchronized (lockB) {
                     log.info("Task {} Lock B'yi aldı, A'yı bekliyor...", task2.getId());
@@ -159,7 +159,7 @@ public class TaskDispatcherService {
 
                     task2.setStatus(TaskStatus.BLOCKED);
                     taskRepository.save(task2);
-                    webSocketPublisher.publishTaskUpdate(new TaskEvent("BLOCKED", task2));
+                    webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.BLOCKED.name(), task2));
 
                     synchronized (lockA) {
                         task2.setStatus(TaskStatus.SUCCESS);
@@ -219,13 +219,13 @@ public class TaskDispatcherService {
             task.setStatus(TaskStatus.WAITING);
             TaskEntity savedTask = taskRepository.save(task);
 
-            webSocketPublisher.publishTaskUpdate(new TaskEvent("WAITING", savedTask));
+            webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.WAITING.name(), savedTask));
 
             Runnable action = () -> {
                 try {
                     savedTask.setStatus(TaskStatus.RUNNING);
                     taskRepository.save(savedTask);
-                    webSocketPublisher.publishTaskUpdate(new TaskEvent("RUNNING", savedTask));
+                    webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.RUNNING.name(), savedTask));
 
                     Thread.sleep(2000);
 
@@ -311,12 +311,12 @@ public class TaskDispatcherService {
         task.setPriority(Priority.HIGH);
         task.setStatus(TaskStatus.WAITING);
         taskRepository.save(task);
-        webSocketPublisher.publishTaskUpdate(new TaskEvent("WAITING", task));
+        webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.WAITING.name(), task));
 
         if (!checkCircuitBreaker()) {
             task.setStatus(TaskStatus.CANCELLED);
             taskRepository.save(task);
-            webSocketPublisher.publishTaskUpdate(new TaskEvent("CANCELLED", task));
+            webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.CANCELLED.name(), task));
             return;
         }
 
@@ -324,7 +324,7 @@ public class TaskDispatcherService {
             try {
                 task.setStatus(TaskStatus.RUNNING);
                 taskRepository.save(task);
-                webSocketPublisher.publishTaskUpdate(new TaskEvent("RUNNING", task));
+                webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.RUNNING.name(), task));
 
                 Thread.sleep(1000);
 
@@ -353,7 +353,7 @@ public class TaskDispatcherService {
         task.setPriority(Priority.CRITICAL);
         task.setStatus(TaskStatus.WAITING);
         taskRepository.save(task);
-        webSocketPublisher.publishTaskUpdate(new TaskEvent("WAITING", task));
+        webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.WAITING.name(), task));
 
         java.util.concurrent.atomic.AtomicReference<Thread> executingThread = new java.util.concurrent.atomic.AtomicReference<>();
 
@@ -362,7 +362,7 @@ public class TaskDispatcherService {
             try {
                 task.setStatus(TaskStatus.RUNNING);
                 taskRepository.save(task);
-                webSocketPublisher.publishTaskUpdate(new TaskEvent("RUNNING", task));
+                webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.RUNNING.name(), task));
 
                 Thread.sleep(5000);
                 task.setStatus(TaskStatus.SUCCESS);
@@ -386,7 +386,7 @@ public class TaskDispatcherService {
                 else if (task.getStatus() == TaskStatus.WAITING) {
                     task.setStatus(TaskStatus.TIMEOUT);
                     taskRepository.save(task);
-                    webSocketPublisher.publishTaskUpdate(new TaskEvent("TIMEOUT", task));
+                    webSocketPublisher.publishTaskUpdate(new TaskEvent(TaskStatus.TIMEOUT.name(), task));
                 }
             } catch (Exception e) {}
         }).start();
@@ -477,5 +477,13 @@ public class TaskDispatcherService {
     /** @return Havuzun maksimum thread kapasitesi */
     public int getMaxThreads() {
         return dispatchExecutor.getMaximumPoolSize();
+    }
+    /**
+     * Veritabanında kayıtlı olan tüm görevlerin listesini döner.
+     * Controller üzerinden gelen okuma isteklerini yönetir.
+     * * @return Mevcut tüm görevlerin listesi
+     */
+    public java.util.List<TaskEntity> getAllTasks() {
+        return taskRepository.findAll();
     }
 }

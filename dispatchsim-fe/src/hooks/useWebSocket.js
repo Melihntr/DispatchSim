@@ -3,7 +3,7 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { fetchAllTasks } from '../services/api'; // API'yi import ettik
 
-const SOCKET_URL = 'http://localhost:8080/ws-dispatch';
+const SOCKET_URL = import.meta.env.VITE_WS_URL;
 
 export const useWebSocket = () => {
     const [tasks, setTasks] = useState([]);
