@@ -10,9 +10,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.concurrent.PriorityBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.*;
 
 /**
  * Uygulamanın merkezi görev dağıtım ve simülasyon servisidir.
@@ -208,9 +208,9 @@ public class TaskDispatcherService {
     public void triggerLoomSimulation(boolean useVirtualThreads) {
         log.warn("LOOM SİMÜLASYONU BAŞLATILIYOR! Mod: " + (useVirtualThreads ? "VIRTUAL" : "PLATFORM"));
 
-        java.util.concurrent.ExecutorService testExecutor = useVirtualThreads
-                ? java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()
-                : java.util.concurrent.Executors.newFixedThreadPool(4);
+                 ExecutorService testExecutor = useVirtualThreads
+                ? Executors.newVirtualThreadPerTaskExecutor()
+                : Executors.newFixedThreadPool(4);
 
         for (int i = 0; i < 50; i++) {
             TaskEntity task = new TaskEntity();
@@ -430,7 +430,7 @@ public class TaskDispatcherService {
         log.warn("MEMORY LEAK SİMÜLASYONU BAŞLATILIYOR! Heap kapasitesi zorlanacak...");
 
         new Thread(() -> {
-            java.util.List<byte[]> memoryLeakList = new java.util.ArrayList<>();
+            List<byte[]> memoryLeakList = new ArrayList<>();
             try {
                 long maxMemory = Runtime.getRuntime().maxMemory();
                 long targetMemory = (long) (maxMemory * 0.85);

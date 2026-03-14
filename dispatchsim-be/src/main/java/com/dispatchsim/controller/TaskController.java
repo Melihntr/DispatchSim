@@ -5,6 +5,7 @@ import com.dispatchsim.model.entity.TaskEntity;
 import com.dispatchsim.repository.TaskRepository;
 import com.dispatchsim.service.TaskDispatcherService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,7 +40,7 @@ public class TaskController {
         newTask.setPriority(request.getPriority());
 
         TaskEntity submittedTask = taskDispatcherService.submitTask(newTask);
-        return ResponseEntity.ok(submittedTask);
+        return new ResponseEntity<>(submittedTask, HttpStatus.CREATED);
     }
 
     /**
